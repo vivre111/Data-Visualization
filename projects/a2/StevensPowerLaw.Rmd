@@ -1,0 +1,196 @@
+---
+title: "Stevens's Power Law"
+subtitle: "Visual perception"
+output:
+  pdf_document: default
+  html_document: default
+fontsize: 10pt
+urlcolor: blue
+header-includes:
+- \usepackage{graphicx}
+- \usepackage{color}
+- \usepackage{tikz}
+- \usepackage{hyperref}
+- \usepackage{multimedia}
+- \newcommand{\field}[1]{\mathbb{#1}}
+- \newcommand{\Reals}{\field{R}}
+- \newcommand{\Integers}{\field{Z}} 
+- \newcommand{\Naturals}{\field{N}}
+- \newcommand{\Complex}{\field{C}}
+- \newcommand{\Rationals}{\field{Q}}
+- \newcommand*{\intersect}{\cap}
+- \newcommand*{\union}{\cup}
+- \newcommand{\pop}[1]{\mathcal{#1}}
+- \newcommand{\samp}[1]{\mathcal{#1}}
+- \newcommand{\given}{~\vline~}
+- \newcommand{\indep}{\bot\hspace{-.6em}\bot}
+- \newcommand{\notindep}{\bot\hspace{-.6em}\bot\hspace{-0.75em}/\hspace{.4em}}
+- \newcommand{\depend}{\Join}
+- \newcommand{\notdepend}{\Join\hspace{-0.9 em}/\hspace{.4em}}
+- \newcommand{\imply}{\Longrightarrow}
+- \newcommand{\notimply}{\Longrightarrow \hspace{-1.5em}/ \hspace{0.8em}}
+- \DeclareMathOperator*{\argmin}{arg\,min}
+- \DeclareMathOperator*{\argmax}{arg\,max}
+- \DeclareMathOperator*{\Ave}{Ave\,}
+- \newcommand{\suchthat}{~:~}
+- \newcommand{\st}{~:~} 
+- \newcommand{\code}[1]{\texttt{#1}}
+- \newcommand*{\R}{\textsf{R}}
+- \newcommand{\togglepause}{\pause}
+- \newcommand{\permanentpause}{\pause}
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+ 
+
+**15 marks**
+
+
+**Stevens's Power Law**
+
+a. **(3 marks)** The following (incomplete) function determines how the ratio (\code{x/y}) of two **actual** stimulus values (\code{x} and \code{y}) would be **perceived** according to Stevens's power law.  It returns the perceived value of the ratio.
+
+
+   The first few lines provide error checking on argument values.  Note that only the value \code{x} need be supplied; the remaining arguments have default values.  Note also either \code{x}, or \code{y}, or both could be a vector; \code{beta} cannot.
+   
+   i. *(2 marks)* Complete the \code{stevensRatio()} function above.
+   
+     Show your code.
+```{r}
+stevensRatio <- function(x, y = 1, beta = 1) {
+    if(missing(x))  stop("Must supply a non-negative value for x")
+    if(any(x < 0))  stop("Must have x >= 0")
+    if(any(y <= 0)) stop("Must have y > 0")
+    if(beta <= 0)   stop("Must have beta > 0")
+    #
+    # You need to insert code here to complete the function
+    #
+   x^beta
+}
+```
+     
+   ii. *(1 mark)* Execute your code for the ratios 0.5 and 2.0 when $\beta = 0.7$.  (Note: these were considered in class. Check that you get the same answers as in class.)
+   
+       Show the code and the results **for both cases**
+```{r}
+stevensRatio(0.5,1,0.7)
+stevensRatio(2,1,0.7)
+```
+b. **(7 marks)** One visual representation frequently used to encode magnitude is **length** (i.e.  the length of a straight line segment).
+
+   According to Stevens's law, the perceived magnitude of length is proportional to a power $\beta$ of the actual length with $0.9 \le \beta \le 1.1$.
+   
+   Here you will investigate the perception of length ratios $r = x/y$ for the two extremes $\beta = 0.9$ and $\beta = 1.1$.  
+   
+   To this end, use the ratio
+```{r, eval = TRUE}
+   r <- seq(from = 0.1, to = 5, by = 0.1)
+   # from which you can construct the limit
+   lim <- extendrange(r)
+```
+   and your function \code{stevensRatio()} for the following.
+   
+   Construct a scatterplot showing both curves together and make sure that it has **exactly  having the following characteristics**.
+   
+      - the plot limits \code{xlim} and \code{ylim} should both have value \code{lim} (see above)
+      - the main plot title should be "Stevens's law for lengths"
+      - the $x$ axis should be labelled "True ratio"
+      - the $y$ axis should be labelled "Perceived ratio"
+      - the curve for $\beta = 0.9$ should be of colour \code{col = "firebrick"} and have line type \code{lty = 2} and line width  \code{lwd = 3}
+      - the curve for $\beta = 1.1$ should be of colour \code{col = "steelblue"} and have line type \code{lty = 3} and line width  \code{lwd = 4}
+      - there should be three solid (no dashing) \code{"grey"} coloured straight lines 
+        
+        - a vertical one at $x = 1$,
+        - a horizontal one at $y = 1$, and
+        - a diagonal one at $y = x$
+        - all having line width 1
+        
+      - the following legend (should match the description above)
+      
+
+        
+        
+   i. *(4 marks)* Show the code (including the legend) used to construct the scatterplot. **Also** show the resulting scatterplot itself.
+   
+      **NOTE** Use the following RMarkdown variable values in the header for your R code that produces the plot.
+      
+```{r , fig.align = "center", fig.width = 6, fig.height = 6, out.width = "60%"}
+prec_1 = stevensRatio(r, 1, 1.1)
+prec_2 = stevensRatio(r, 1, 0.9)
+plot(r, prec_1,xlim = lim, ylim=lim,main = "Steven's law for lengths", xlab = "True ratio", type='l',
+     ylab="Precieved ratio", col="steelblue", lty=3, lwd=4)
+points(r,prec_2,col="firebrick", lty=2, lwd=3, type='l')
+legend("topleft", 
+       legend = c("0.9", "1.1"), 
+       lty = c(2, 3), lwd = 3, 
+       col = c("firebrick", "steelblue"),
+       title = expression(paste("power ", beta)))
+
+abline(h=1,col="grey", lwd=1)
+abline(v=1,col="grey", lwd=1)
+abline(0,1,col="grey", lwd=1)
+```
+      
+   
+   ii. *(3 marks)* What do you conclude about the possible perception of the length ratios when the true ratio is greater than 1?   Explain your reasoning.
+  
+   given true ratio>1, 
+   if $\beta>1$, the perception of length ratio is larger than the true ratio of length.   
+   if $\beta<1$, the perception of length ratio is smaller than the true ratio of length.
+   
+   Moreover, as true ratio increase, the difference between perceptual ratio and true ratio increase
+   
+   this is because in the graph, at a fixed true ratio=x>1, the perceived ratio when $\beta>1$ is larger than true ratio (line y=x), which is larger than perceived ratio when $\beta<1$
+   
+   Also, in the graph distance between red/blue dots and line y=x increase as true ratio increase. which suggests less accuracy in perception.
+   
+   mathematical, it is because $\frac{da^x}{da}>1$ when a,x>0
+
+c. **(5 marks)** Two other ways to visualize magnitude are to use area and volume.  As in part (b) above, use your \code{stevensRatio()} function to produce a scatterplot having the following characteristics:
+
+      - the plot limits \code{xlim} and \code{ylim} should both have value \code{lim} (see part b. above)
+      - the main plot title should be "Stevens's law"
+      - the $x$ axis should be labelled "True ratio"
+      - the $y$ axis should be labelled "Perceived ratio"
+      - the curve for area should be of colour \code{col = "firebrick"} and have line type \code{lty = 2} and line width  \code{lwd = 3}
+      - the curve for volume should be of colour \code{col = "steelblue"} and have line type \code{lty = 3} and line width  \code{lwd = 4}
+      - there should be three solid (no dashing) \code{"grey"} coloured straight lines 
+        
+        - a vertical one at $x = 1$,
+        - a horizontal one at $y = 1$, and
+        - a diagonal one at $y = x$
+        - all having line width 1
+        
+      - there should be a legend appropriately identifying the curves for area (use the word "area") and volume (use the word "volume").
+      
+      - in each case, use the middle of the range of $\beta$ values that have been determined experimentally (see slides).
+      
+      i. *(2 marks)* Produce the scatterplot and show the code used.
+```{r , fig.align = "center", fig.width = 6, fig.height = 6, out.width = "60%"}
+prec_1 = stevensRatio(r, 1, 0.75)
+prec_2 = stevensRatio(r, 1, 0.65)
+plot(r, prec_1,xlim = lim, ylim=lim,main = "Steven's law", xlab = "True ratio",
+     ylab="Precieved ratio", col="steelblue", lty=3, lwd=4,type='l')
+points(r,prec_2,col="firebrick", lty=2, lwd=3, type='l')
+legend("topleft", 
+       legend = c("Area", "Volmn"), 
+       lty = c(2, 3), lwd = 3, 
+       col = c("firebrick", "steelblue"),
+       )
+
+abline(h=1,col="grey", lwd=1)
+abline(v=1,col="grey", lwd=1)
+abline(0,1,col="grey", lwd=1)
+```
+         
+      ii. *(2 marks)* What do you conclude about the use of area or volume when the true ratio is greater than 1?   Explain your reasoning.
+      
+   the ratio of area/volumn of objects seems smaller than the true ratio. This is because when true ratio=x>1, the percieved ratio is under the line y=x, which implies precieved ratio being smaller than true ratio. 
+           
+      iii. *(1 mark)* How does using area or volume compare to using length to encode magnitude?   Explain your reasoning.
+      
+   it's less accurate to encode magnitude using area/volumn than using length. This is because if we are decoding the ratio of area/volumn to unit area/volumn, the precieved ratio is further from true ratio than if we are using length, and the difference increase as true ratio increase.

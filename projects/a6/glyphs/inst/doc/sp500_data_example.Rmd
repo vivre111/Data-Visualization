@@ -1,0 +1,196 @@
+---
+title: "SP500 data example"
+author: "Jiahua Liu"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{SP500 data example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+### illustrates
+
+```{r setup, warning=FALSE, message=FALSE, error=FALSE}
+library(glyphs)
+library(jpeg)
+```
+
+1. Data Organization
+2. Make glyphs and draw
+    * General plot
+    * Plot of average
+    * Plot within sectors
+
+## The `SP500` data
+
+The `SP500` data contains S&P 500 constituents stock indices from 1962, when at least one of the constituents is available, to 2015 and if the data is not available, it will return missing data. The constituents information is in the following website (https://en.wikipedia.org/wiki/List_of_S%26P_500_companies). The data set comes from `qrmdata` package in CRAN. See `help(qrmdata::SP500_const)` for more information.
+
+In this example, we will focus on the stock indices from 2007 to 2009, since there is a financial crisis on 2008, and we would like to see its impact on the constituents.
+
+```{r}
+library(qrmdata)
+data("SP500_const") # load the constituents data from qrmdata
+time <- c("2007-01-03", "2009-12-31") # specify time period
+data_sp500 <- SP500_const[paste0(time, collapse = "/"),] # grab out data
+```
+
+For example, some stock indices in the first few days(from 01/03/2017 to 01/11/2017) are listed below.
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(head(data_sp500[,1:7], 7))
+```
+
+Moreover, `SP500_const_info` also provides the sectors which stocks belong to, and it makes life easier to compare the stocks within common sectors or subsectors. Below shows the sectors and subsectors of the first few stocks
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(head(SP500_const_info, 7))
+```
+
+## Data organization
+
+First, the data should be reorganized from xts to a list which can be used by `make_glyphs` function in the package.
+
+```{r}
+data_complete <- list() # complete data
+for (i in 1:ncol(data_sp500)){
+ data_complete[[i]] <- as.vector(data_sp500[,i])
+}
+x <- t(na.omit(t(data_sp500))) # omit the missing data
+data_omitNA <- split(x,col(x)) # split the data into list
+str(data_omitNA[1:3]) # present the first three stocks indices in the data list
+```
+
+## Make glyphs and draw
+
+### General plot
+
+Since for each stock the data is a time series, Keim's "rectangle" method is preferred. Each day there is only one data value, so the first level of width and height are both 1. On average, 5 days in a week having stock indices, so the second level of width should be 5, and the third level of height should be 1. So on and so forth, at last we have three years, so the width should be 1 and height 3.
+
+The following presents examples for both complete and omit missing data. The color is by default. As we can see, there are two stock indices totally missing, which are in yellow color. Also, because number of weeks varies in each month, the plot will not match the date exactly and in this case we only display 720 data values but in total we have 756 data values. However, the plot is still good to see the overall trend.
+
+```{r, fig.show='hold'}
+par(mar = rep(1.5,4))
+width=c(1,5,1,12,1) # set the width
+height=c(1,1,4,1,3) # set the height
+# complete data
+glyph_complete <- make_glyphs(data = data_complete[1:9], glyph_type = "rectangle",
+                              width = width, height = height, origin = "mean")
+x <- getGridXY(length(glyph_complete)) # get the coordinates
+plot_glyphs(x, glyphs = glyph_complete, axes = FALSE, xlab = "", ylab = "",
+            glyphWidth = 0.8, glyphHeight = 0.6,
+            main = "First 9 stocks of complete data", cex.main = 0.8)
+# omit missing data
+glyph_Nomissing <- make_glyphs(data = data_omitNA[1:9], glyph_type = "rectangle",
+                               width = width, height = height, origin = "mean")
+x <- getGridXY(length(glyph_Nomissing)) # get the coordinates
+plot_glyphs(x, glyphs = glyph_Nomissing, axes = FALSE, xlab = "", ylab = "",
+            glyphWidth = 0.8, glyphHeight = 0.6,
+            main = "First 9 stocks of no missing data", cex.main = 0.8)
+```
+
+Since if the stock price is lower, the index will be in red, and if higher, it will be in green, a diverging color scale from red to green could also be a good choice. However, many people have red-green blindness, so we should avoid that and choose blue instead of green.
+
+```{r, fig.show='hold'}
+par(mar = rep(1.5,4))
+library(colorspace)
+cols <- rev(diverge_hcl(21)) # diverge color from blue to red
+# complete data
+glyph_complete <- make_glyphs(data = data_complete[1:9], glyph_type = "rectangle", cols = cols,
+                              width = width, height = height, origin = "mean")
+x <- getGridXY(length(glyph_complete)) # get the coordinates
+plot_glyphs(x, glyphs = glyph_complete, axes = FALSE, xlab = "", ylab = "",
+            glyphWidth = 0.8, glyphHeight = 0.6,
+            main = "First 9 stocks of complete data", cex.main = 0.8)
+# omit missing data
+glyph_Nomissing <- make_glyphs(data = data_omitNA[1:9], glyph_type = "rectangle", cols = cols,
+                               width = width, height = height, origin = "mean")
+x <- getGridXY(length(glyph_Nomissing)) # get the coordinates
+plot_glyphs(x, glyphs = glyph_Nomissing, axes = FALSE, xlab = "", ylab = "",
+            glyphWidth = 0.8, glyphHeight = 0.6,
+            main = "First 9 stocks of no missing data", cex.main = 0.8)
+```
+
+### Plot of Average
+
+To see the general trend of the stock indices for all these constituents, we can average the stock indices for each day and then plot them.
+
+From the plot, the stock indices generally had almost no fluctuation before the last quarter of 2008 and were relatively high. However, after that the stock indices suddenly went down and lasted almost a year. It recovered a little bit at the end of 2009 but did not return the original status. Therefore, in this plot we can see the dramatic impact of the 2008 financial crisis on the stock indices in the whole stock market.
+
+```{r, fig.show='hold'}
+par(mar = rep(1.5,4))
+# get the average stock indices for each day
+data_average <- list(Reduce("+", data_omitNA) / length(data_omitNA))
+# make glyph
+average_glyph <- make_glyphs(data = data_average, glyph_type = "rectangle", cols = cols,
+                             width = width, height = height)
+x <- getGridXY(length(average_glyph)) # get x and y coordinates to plot
+# plot it
+plot_glyphs(x, glyphs = average_glyph, axes = FALSE, xlab = "", ylab = "",
+            main = "Average stock indices", cex.main = 0.8)
+# color mapping plot
+pal <- function(col, border = "light gray", ...)
+{
+  n <- length(col)
+  plot(0, 0, type="n", xlim = c(0, 1), ylim = c(0, 1), axes = FALSE, xlab = "", ylab = "", ...)
+  rect(0:(n-1)/n, 0, 1:n/n, 1, col = col, border = border)
+}
+pal(cols, main = "color mapping", cex.main = 0.8)
+```
+
+### Plot within sectors
+
+After having a glimpse of the overall trend, we can also dig into details about some specific sectors or subsectors of the stock and see whether they have a similar trend. Some companies may foresee the crisis and do something to prevent the loss or even gain some profit on it.
+
+#### Bank stocks
+
+The stock tickers are listed below.
+
+```{r}
+bank_loc <- which(SP500_const_info$Subsector == "Banks") # get the stock location
+as.vector(SP500_const_info[bank_loc,]$Ticker) # stock ticker
+```
+
+The plot and the code are shown below. In total there are 15 stocks, and the last glyph is the average of all 15 banks.
+
+Overall, all the banks are more or less influenced by the financial crisis and the average value plot also confirms the argument. Besides, there seems to be two groups according to the plot. "BK", "BBT", "JPM", "PNC", "USB", and "WFC" have similar pattern which in the first two years are roughly no change but drop down in the last year. The rest have another pattern which clearly have different colors for each year from blue to grey and finally to red showing that their indices generally went down on a yearly basis.
+
+```{r, fig.width=5, fig.height=5, fig.align='center'}
+par(mar = rep(1.5,4))
+data_bank <- data_complete[bank_loc] # get the bank stock data
+bank_average <- Reduce("+", data_bank)/length(bank_loc) # calculate the average
+data_bank[[length(bank_loc)+1]] <- bank_average # add the average to the data list
+glyphs_bank <- make_glyphs(data_bank, width = width, height = height, glyph_type = "rectangle",
+                           origin = "mean", cols = cols) # make glyphs
+x <- getGridXY(length(glyphs_bank)) # get grid
+plot_glyphs(x, glyphs = glyphs_bank, glyphWidth = 0.8, glyphHeight = 0.6,
+            axes = FALSE, xlab = "", ylab = "",
+            main = "Bank stock indices", cex.main = 0.8) # plot the glyphs
+text(x, labels = c(as.vector(SP500_const_info[bank_loc,]$Ticker), "Average"), col = "grey30")
+```
+
+### Investment bank stocks
+
+Here are the investment bank tickers.
+
+```{r}
+investment_loc <- which(SP500_const_info$Subsector == "Investment Banking & Brokerage")
+as.vector(SP500_const_info[investment_loc,]$Ticker)
+```
+
+Then, the plot is shown below. There are only 4 stocks, and the last glyph plot is the average. The situation is similar to above, most of the investment banks are influenced by the crisis. However, note that the second stock "ETFC" has a different pattern which had a early drop in 2007 but not in the late 2008, so it seems that the financial crisis did not affect it that much.
+
+```{r, fig.align='center', fig.height=5, fig.width=5}
+par(mar = rep(1.5,4))
+data_investment <- data_complete[investment_loc] # get the bank stock data
+bank_average <- Reduce("+", data_investment)/length(investment_loc) # calculate the average
+data_investment[[length(investment_loc)+1]] <- bank_average # add the average to the data list
+glyphs_investment <- make_glyphs(data_investment, width = width, height = height, glyph_type = "rectangle",
+                           origin = "mean", cols = cols) # make glyphs
+x <- getGridXY(length(glyphs_investment)) # get grid
+plot_glyphs(x, glyphs = glyphs_investment, glyphWidth = 0.8, glyphHeight = 0.6,
+            axes = FALSE, xlab = "", ylab = "") # plot the glyphs
+title("Investment bank stock indices", line = 0, cex.main = 0.8)
+text(x, labels = c(as.vector(SP500_const_info[investment_loc,]$Ticker), "Average"), col = "grey30")
+```
+

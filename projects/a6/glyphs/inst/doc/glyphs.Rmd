@@ -1,0 +1,385 @@
+---
+title: "Basic introduction"
+author: "Jiahua Liu"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Basic introduction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: reference.bib
+---
+
+### illustrates
+
+```{r setup, warning=FALSE, message=FALSE, error=FALSE}
+library(glyphs)
+library(jpeg)
+```
+
+1. Mapping from data values to colors
+2. Layout of colors in a 2-D plane
+3. Make a list of glyphs from a multidimensional data
+4. Plot glyphs in a device
+
+## data2col
+
+The `data2col` function provides a mapping from data values to colors. Given a data vector, `data2col` function can generate a corresponding colors vector. It uses the hsi colorspace provided by Keim. [@keim1995issues] This colorspace is unlike the hsv and hls. It preserves the monotonicity when color scales are mapped to gray-scale, which means higher data values will have higher gray-scale. The color scale given below for the hsi color is also our default setting in the `data2col` function.
+
+```{r, echo=FALSE, fig.show='hold'}
+x <- c(0, 360)
+y <- c(0.4, 1)
+f <- approxfun(x, y)
+l <- 100000
+H <- seq(x[1],x[2], length.out = l)
+I <- f(H)
+S <- rep(1,length(H))
+R <- hsi2rgb(H, S, I)[1,]
+G <- hsi2rgb(H, S ,I)[2,]
+B <- hsi2rgb(H, S, I)[3,]
+col_hsi <- rgb(R, G, B, maxColorValue = 255)
+gr1 <- (0.34*R + 0.5*G + 0.16*B)/255
+grey_hsi <- grey(gr1)
+col_hsv <- hsv(H/360, S, I)
+hsv_rgb <- col2rgb(col_hsv)
+gr2 <- (0.34 * hsv_rgb[1,] + 0.5 * hsv_rgb[2,] + 0.16 * hsv_rgb[3,]) / 255
+grey_hsv <- grey(gr2)
+par(mfrow=c(2,1), mar = rep(2,4))
+barplot(rep(1,length(H)), col = col_hsi, border = NA, beside = FALSE, space = c(0,0),
+        axes = FALSE, main="HSI color mapping", cex.main = 0.9)
+barplot(rep(1,length(H)), col = grey_hsi, border = NA, beside = FALSE, space = c(0,0),
+        axes = FALSE)
+barplot(rep(1,length(H)), col = col_hsv, border = NA, beside = FALSE, space = c(0,0),
+        axes = FALSE, main="HSV color mapping", cex.main = 0.9)
+barplot(rep(1,length(H)), col = grey_hsv, border = NA, beside = FALSE, space = c(0,0),
+        axes = FALSE)
+```
+
+Below is an illustration for standard normal data.
+
+```{r,  fig.align='center'}
+par(mar = rep(1.5,4))
+set.seed(100)
+cols <- data2col(rnorm(30))
+barplot(rep(1,length(cols)), col = cols, border = NA, beside = FALSE, space = c(0,0),
+        axes = FALSE, main="Standard normal data", cex.main = 0.8)
+```
+
+
+## Color layout function
+
+Next, we will consider displaying the colors in a specific order in a 2-D plane. "Hilbert curve", "Morton curve" and one method suggested by "rectangle" are provided corresponding to the three functions `HilbertGlyph`, `MortonGlyph`, and `recGlyph`. [@keim1996pixel] Each function can give a png format matrix or a class of pixmap which can be considered as a glyph. The glyph can also be treated as a basic element to plot.
+
+```{r, echo=FALSE, fig.width=6, fig.height=4.5, fig.align='center'}
+Hilbert <- function(x = 0,y= 0,level, drawFn, col,Repeat = FALSE, plot = TRUE, ...){
+  if (plot) {
+    plot(0,type='n', xlim=c(0, x+2^level), ylim=c(0,y+2^level),axes = FALSE,xlab = "", ylab = "", ...)
+  }
+  maxLength <- 2^(2*level)
+  y <- 2^level
+  if(missing(col)) col <- rainbow(maxLength)
+  if (Repeat){
+    if(length(col) != maxLength) {
+      col <- rep_len(col, length.out = maxLength)
+    }
+  }
+  if(missing(drawFn)) {
+    drawFn <- function(x,y, num, col) {
+      rect(x,y-1,x+1,y,col = col)
+      points(x+1/2, y-1/2, pch=paste(num%%10), cex = 0.8)
+    }
+  }
+  locNum <- 1
+  SetLocImage <- function(x,y,col){
+    drawFn(x,y, locNum, col = col[locNum])
+    locNum <<- locNum + 1
+  }
+  move <- function(d){
+    switch(d,
+           down = {y <<- y-1
+           x <<- x},
+           up = {y <<- y+1
+           x <<- x},
+           right = {x <<- x+1
+           y <<- y},
+           left = {x <<- x-1
+           y <<- y}
+    )
+  }
+  if (level %% 2 == 1){
+    HilbertStep <- function(R,D,L,U,level, col){
+      if (level > 0){
+        HilbertStep(D,R,U,L,level-1, col)
+        SetLocImage(x,y,col)
+        move(R)
+        
+        HilbertStep(R,D,L,U,level-1, col)
+        SetLocImage(x,y,col)
+        move(D)
+        
+        HilbertStep(R,D,L,U,level-1, col)
+        SetLocImage(x,y,col)
+        move(L)
+        
+        HilbertStep(U,L,D,R,level-1, col)
+      }
+    }
+    HilbertStep("right","down","left","up",level, col)
+    SetLocImage(x,y,col)
+  } else {
+    HilbertStep <- function(D,R,U,L,level, col){
+      if (level > 0){
+        HilbertStep(R,D,L,U,level-1, col)
+        SetLocImage(x,y,col)
+        move(R)
+        
+        HilbertStep(D,R,U,L,level-1, col)
+        SetLocImage(x,y,col)
+        move(D)
+        
+        HilbertStep(D,R,U,L,level-1, col)
+        SetLocImage(x,y,col)
+        move(L)
+        
+        HilbertStep(L,U,R,D,level-1, col)
+      }
+    }
+    HilbertStep("right","down","left","up",level, col)
+    SetLocImage(x,y,col)
+  }
+}
+par(mfrow = c(2,3), mar = rep(1, 4))
+Hilbert(level=1, main = "Hilbert curve(level=1)", cex.main = 0.8)
+Hilbert(level=2, main = "Hilbert curve(level=2)", cex.main = 0.8)
+Hilbert(level=3, main = "Hilbert curve(level=3)", cex.main = 0.8)
+plot_matrix <- matrix(nrow = 2^(2*1), ncol = 2)
+Hilbert(level=1, drawFn = function(x,y,locNum,col) {plot_matrix[locNum,] <<- c(x+0.5, y-0.5)}, plot = FALSE)
+plot(data.frame(plot_matrix), type = "l", axes = FALSE, xlab = "", ylab = "")
+plot_matrix <- matrix(nrow = 2^(2*2), ncol = 2)
+Hilbert(level=2, drawFn = function(x,y,locNum,col) {plot_matrix[locNum,] <<- c(x+0.5, y-0.5)}, plot = FALSE)
+plot(data.frame(plot_matrix), type = "l", axes = FALSE, xlab = "", ylab = "")
+plot_matrix <- matrix(nrow = 2^(2*3), ncol = 2)
+Hilbert(level=3, drawFn = function(x,y,locNum,col) {plot_matrix[locNum,] <<- c(x+0.5, y-0.5)}, plot = FALSE)
+plot(data.frame(plot_matrix), type = "l", axes = FALSE, xlab = "", ylab = "")
+
+Morton <- function(x=0,y=0,level,drawFn,col,Repeat = FALSE, plot = TRUE, ...){
+  if (plot) {
+    plot(0,type='n', xlim=c(0, x+2^level), ylim=c(0,y+2^level),axes = FALSE,xlab = "", ylab = "", ...)
+  }
+  maxLength <- 2^(2*level)
+  y <- 2^level
+  if(missing(col)) col <- rainbow(maxLength)
+  if (Repeat){
+    if(length(col) != maxLength) {
+      col <- rep_len(col, length.out = maxLength)
+    }
+  }
+  if(missing(drawFn)) {
+    drawFn <- function(x,y, num, col) {
+      rect(x,y-1,x+1,y,col = col)
+      points(x+1/2, y-1/2, pch=paste(num%%10), cex = 0.8)
+    }
+  }
+  locNum <- 1
+  SetLocImage <- function(x,y,col){
+    drawFn(x,y, locNum, col = col[locNum])
+    locNum <<- locNum + 1
+  }
+  MortonStep <- function(x,y,level,col){
+    if (level>1){
+      MortonStep(x,y,level-1,col)
+      MortonStep(x+2^(level-1),y,level-1,col)
+      MortonStep(x,y-2^(level-1),level-1,col)
+      MortonStep(x+2^(level-1),y-2^(level-1),level-1,col)
+    }
+    else{
+      SetLocImage(x,y,col)
+      SetLocImage(x <- x+1,y, col)
+      SetLocImage(x <- x-1,y <- y-1,col)
+      SetLocImage(x <- x+1, y,col)
+    }
+  }
+  MortonStep(x,y,level,col)
+}
+Morton(level = 1, main = "Morton Curve(level=1)", cex.main = 0.8)
+Morton(level = 2, main = "Morton Curve(level=2)", cex.main = 0.8)
+Morton(level = 3, main = "Morton Curve(level=3", cex.main = 0.8)
+plot_matrix <- matrix(nrow = 2^(2*1), ncol = 2)
+Morton(level=1, drawFn = function(x,y,locNum,col) {plot_matrix[locNum,] <<- c(x+0.5, y-0.5)}, plot = FALSE)
+plot(data.frame(plot_matrix), type = "l", axes = FALSE, xlab = "", ylab = "")
+plot_matrix <- matrix(nrow = 2^(2*2), ncol = 2)
+Morton(level=2, drawFn = function(x,y,locNum,col) {plot_matrix[locNum,] <<- c(x+0.5, y-0.5)}, plot = FALSE)
+plot(data.frame(plot_matrix), type = "l", axes = FALSE, xlab = "", ylab = "")
+plot_matrix <- matrix(nrow = 2^(2*3), ncol = 2)
+Morton(level=3, drawFn = function(x,y,locNum,col) {plot_matrix[locNum,] <<- c(x+0.5, y-0.5)}, plot = FALSE)
+plot(data.frame(plot_matrix), type = "l", axes = FALSE, xlab = "", ylab = "")
+
+RecP <- function(x=0,y=0,drawFn,width,height,col,Repeat = FALSE, plot = TRUE, ...){
+  if(missing(width)) width <- c(7,1,12)
+  if(missing(height)) height <- c(1,4,1)
+  if (plot) {
+    plot(c(0,prod(width)),c(0,prod(height)), type = "n", axes = FALSE, xlab = "", ylab = "", ...)
+  }
+  maxLength <- prod(width)*prod(height)
+  y <- prod(height)
+  if(missing(col)) col <- rainbow(maxLength)
+  if (Repeat){
+    if(length(col) != maxLength) {
+      col <- rep_len(col, length.out = maxLength)
+    }
+  }
+  if(missing(drawFn)) {
+    drawFn <- function(x,y, num, col) {
+      rect(x,y-1,x+1,y,col = col)
+      points(x+1/2, y-1/2, pch=paste(num%%10), cex = 0.8)
+    }
+  }
+  locNum <- 1
+  SetLocImage <- function(x,y,col){
+    drawFn(x,y, locNum, col = col[locNum])
+    locNum <<- locNum + 1
+  }
+  level <- length(height)
+  next_x <- numeric(level+1)
+  next_y <- numeric(level+1)
+  next_x[1] <- 1
+  next_y[1] <- 1
+  for(i in 2: (level+1)){
+    next_x[i] <- prod(width[1:(i-1)])
+    next_y[i] <- prod(height[1:(i-1)])
+  }
+  RecPStep <- function(x,y,level,col){
+    if (level == 0){
+      SetLocImage(x,y,col)
+    }
+    else {
+      if (level == 1){
+        for(h in 1:height[level]){
+          if (h%%2 == 1){
+            for(w in 1:width[level]){
+              RecPStep(x,y,level-1,col)
+              x <- x + next_x[level]
+            }
+          }
+          else {
+            for(w in 1:width[level]){
+              x <- x - next_x[level] 
+              RecPStep(x,y,level-1,col)
+            }
+          }
+          y <- y - next_y[level]
+        }
+      }
+      else {
+        for(h in 1:height[level]){
+          for(w in 1:width[level]){
+            RecPStep(x,y,level-1,col)
+            x <- x + next_x[level]
+          }
+          x <- x - next_x[level+1]
+          y <- y - next_y[level]
+        }
+      }
+    }
+  }
+  RecPStep(x,y,level,col)
+}
+# example
+RecP(width=3,height=3,Repeat = TRUE,
+     main = "Keim's rectangle plot with width(3) and height(3)", cex.main = 0.8)
+RecP(width=c(3,2),height=c(3,2),Repeat = TRUE,
+     main = "Keim's rectangle plot with width(3,2) and height(3,2)", cex.main = 0.8)
+RecP(width=c(3,2,2),height=c(3,2,2),Repeat = TRUE,
+     main = "Keim's rectangle plot with width(3,2,2) and height(3,2,2)", cex.main = 0.8)
+plot_matrix <- matrix(nrow = 3*3, ncol = 2)
+RecP(width=3,height=3, drawFn = function(x,y,locNum,col) {plot_matrix[locNum,] <<- c(x+0.5, y-0.5)}, plot = FALSE)
+plot(data.frame(plot_matrix), type = "l", axes = FALSE, xlab = "", ylab = "")
+plot_matrix <- matrix(nrow = (3*2)*(3*2), ncol = 2)
+RecP(width=c(3,2),height=c(3,2), drawFn = function(x,y,locNum,col) {plot_matrix[locNum,] <<- c(x+0.5, y-0.5)}, plot = FALSE)
+plot(data.frame(plot_matrix), type = "l", axes = FALSE, xlab = "", ylab = "")
+plot_matrix <- matrix(nrow = (3*2*2)*(3*2*2), ncol = 2)
+RecP(width=c(3,2,2),height=c(3,2,2), drawFn = function(x,y,locNum,col) {plot_matrix[locNum,] <<- c(x+0.5, y-0.5)}, plot = FALSE)
+plot(data.frame(plot_matrix), type = "l", axes = FALSE, xlab = "", ylab = "")
+```
+
+One can see the order of each displaying method from the flow of the color, the number inside each square and the line graph shown in the right. Note that the plot starts from the top left corner and the sequence of numbers is module by 10.
+
+For the Keim's rectangular method, the plot is drawn recursively and only the first level is in an "snake" order, and the rest start from the left end. This method can do better in the time series data, since the time order such as year, month and so on is in this recursive manner.
+
+The illustration of some functions are shown below.
+
+```{r, fig.show='hold'}
+par(mar = rep(1.5,4))
+cols <- rainbow(64) # get colors
+myPngmat <- HilbertGlyph(cols) # get a glyph of data matrix in png format
+plot(0,type='n', xlim=c(0,1), ylim=c(0,1), axes = FALSE, xlab = "", ylab = "",
+     main = "HilbertGlyph draw", cex.main = 0.9) # background plot
+rasterImage(myPngmat,0,0,1,1) # plot the glyph
+myPngmat <- MortonGlyph(cols)
+plot(0,type='n', xlim=c(0,1), ylim=c(0,1), axes = FALSE, xlab = "", ylab = "",
+     main = "MortonGlyph draw", cex.main = 0.9)
+rasterImage(myPngmat,0,0,1,1)
+```
+
+
+## Make glyphs and plot them in a device
+
+Then, for a multidimension data set, `make_glyphs` can get a list of glyphs from a list of data vectors. `getGridXY` provides x and y coordinates where we need to plot in a grid. Finally, `plot_glyphs` plots the glyphs in a specific device. Or one can use his own plot function to plot the glyphs generated by `make_glyphs`.
+
+An illustration of student t distribution data plot is shown as follows. Also, we can choose the interested range that we want and lower value outside the range will be in blue while higher value will be in red.
+
+```{r, fig.show='hold'}
+par(mar = rep(1.5,4))
+n <- 9
+# data generated from student t distribution
+data <- list()
+for (i in 1:n){
+  data[[i]] <- rt(1000, df = 10)
+}
+glyphs <- make_glyphs(data,origin = "mean", type = "pixmap") # get glyphs in pixmap
+x <- getGridXY(n) # get the x and y coordinates to plot
+# plot glyphs
+plot_glyphs(x, glyphs = glyphs, glyphWidth = 0.8, glyphHeight = 0.8, type = "pixmap",
+            axes = FALSE, xlab = "", ylab = "",
+            main = "A list of 9 student t data sets with df=10", cex.main = 0.8)
+glyphs_outlier <- make_glyphs(data, type = "pixmap", xLow = -3, origin = 0, xHigh = 3)
+plot_glyphs(x, glyphs = glyphs_outlier, glyphWidth = 0.8, glyphHeight = 0.8, type = "pixmap",
+            axes = FALSE, xlab = "", ylab = "",
+            main = "A list of 9 student t data sets with df=10\n with range (-3,3)",
+            cex.main = 0.8)
+```
+
+Finally, `make_glyphs_draw` is also a useful function which is more general. Given a list of data vectors, and any `draw_fun`, `make_glyphs_draw` can get a list of corresponding glyphs in almost all picture types. It can also be a tool to transform a list of glyphs between different picture forms.
+
+Below shows an example of `draw_fun=hist` which is a built-in function in r.
+
+```{r, fig.align='center'}
+par(mar = rep(1,4))
+glyphs_hist <- make_glyphs_draw(data, 
+                                draw_fun = function(data_i){hist(data_i, main = "", axes = FALSE,
+                                                                 col = "steelblue")},
+                                type = "png", mar = rep(1, 4), width = 100, height = 100)
+x <- getGridXY(n)
+plot_glyphs(x, glyphs = glyphs_hist, glyphWidth = 0.8, glyphHeight = 0.8,
+            axes = FALSE, xlab = "", ylab = "")
+```
+
+Then an example of transforming glyphs from "pixmap" to "jpeg"
+
+```{r, fig.show='hold'}
+par(mar = rep(1.5,4))
+plot_glyphs(x, glyphs = glyphs, glyphWidth = 0.8, glyphHeight = 0.8, type = "pixmap", axes = FALSE, xlab = "", ylab = "", main = "A list of 9 student t data sets with df=10\n (pixmap)", cex.main = 0.7)
+glyphs_jpeg <- make_glyphs_draw(data = glyphs, 
+                                draw_fun = function(data_i){
+                                  plot_glyphs(getGridXY(1),glyphs = list(data_i),
+                                              type = "pixmap",
+                                              axes = FALSE, xlab = "", ylab = "")
+                                  },
+                                type = "jpeg", mar = rep(0, 4), width = 100, height = 100)
+plot_glyphs(x, glyphs = glyphs_jpeg, glyphWidth = 0.8, glyphHeight = 0.8,
+            axes = FALSE, xlab = "", ylab = "",
+            main = "A list of 9 student t data sets with df=10 \n (jpeg)", cex.main = 0.7)
+```
+
+
+## Reference

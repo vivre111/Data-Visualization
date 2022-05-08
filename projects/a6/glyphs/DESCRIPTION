@@ -1,0 +1,16 @@
+Package: glyphs
+Type: Package
+Title: Make glyphs using pixel-oriented data visualization technique
+Version: 0.1.1
+Author: Jiahua Liu, Wayne Oldford
+Maintainer: Wayne Oldford <rwoldford@uwaterloo.ca>
+Description: Make glyphs using pixel-oriented data visualization technique. The package can map data values to pixel colors and order them in a plane in a specific way such as Hilbert curve to get a glyph for each dimension of the data sets. Then, one can plot them in the device. Besides, the mapping from data values to colors has a default function and also for the plot function, but one can have his own function for it. The core of the package is to make a list of glyphs given a multidimensional data set.
+Encoding: UTF-8
+LazyData: true
+Imports: png, grid, jpeg, tiff, pixmap
+Suggests: dplyr, qrmdata, knitr, rmarkdown, maps, colorspace, testthat
+RoxygenNote: 7.1.0
+VignetteBuilder: knitr
+License: GPL-2
+NeedsCompilation: no
+Packaged: 2020-11-09 02:42:18 UTC; rwoldford

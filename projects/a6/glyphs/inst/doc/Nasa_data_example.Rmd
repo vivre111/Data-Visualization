@@ -1,0 +1,230 @@
+---
+title: "Nasa data example"
+author: "Jiahua Liu"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Nasa data example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: reference.bib
+---
+
+```{r knitr_setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### illustrates
+
+```{r setup, warning=FALSE, message=FALSE, error=FALSE}
+library(glyphs)
+library(jpeg)
+```
+
+1. Data organization
+2. Make glyphs and draw them in different ways
+3. Analysis of the plot
+
+## The `nasa` data
+
+The data are geographic and atmospheric measures on Central America. Temperature, ozone, air pressure, and cloud cover( low, mid, and high) are provided on monthly averages from Jan 1995 to Dec 2000. The data set is called `nasa` which can be found in the `dplyr` package. One can see more descriptions of the data by `help(nasa)`.
+
+```{r}
+library(dplyr)
+names(nasa$mets)
+names(nasa$dims)
+```
+
+`nasa` data set has two variable `mets` and `dims`. `mets` contains measurements which for each forms a 4-way matrix and `dims` provides the corresponding value of each dimension which includes the latitude, longitude, month and year.
+
+Given a specific longitude and latitude, we would like to make a glyph according to the corresponding time series data and then draw them to see if there are some patterns. The following example will focus on the measurement of temperature, and will show how to make glyphs and then draw them on the plot.
+
+## Data organization
+
+Since the data given is a matrix, we need to organize the data into a list that can be used in the package `glyph`.
+
+```{r}
+data_temperature <- list()
+for(i in 1:(24*24)){
+  col_number <- (i-1) %% 24 + 1
+  row_number <- (i-1) %/% 24 + 1
+  data_temperature[[i]] <- as.vector(nasa$mets$temperature[col_number,row_number,,])
+}
+str(data_temperature[1:3]) # show the first three elements in the data
+```
+
+## Make glyphs and draw
+
+Then, we can make glyphs and draw them by `make_glyphs` and `plot_glyphs` function. The right picture is the color scale used by the plot. Since the data is in time order, it is better to use Keim's rectangle method where for each glyph, the data will be displayed in a 12 by 6 grid, and there will be 6 rows representing 6 years and 12 columns representing 12 months.
+
+```{r, fig.show='hold'}
+par(mar = rep(1.5,4))
+# get glyphs
+glyphs_temperature <- make_glyphs(data = data_temperature, width = c(1,12,1), height = c(1,1,6),
+                                  glyph_type = "rectangle", type = "pixmap")
+x <- expand.grid(nasa$dims$long, nasa$dims$lat) # get the latitude and longitude as coordinates
+# plot glyphs
+plot_glyphs(x, glyphs = glyphs_temperature, type = "pixmap", xlab = "", ylab = "",
+            xaxs = "i", yaxs = "i", cex.axis = 0.8, mgp = c(3, 0.5, 0))
+title("Nasa data temperature trend plot\n(Default)", line = 0.1, cex.main = 0.8)
+# color mapping plot
+x <- c(0, 360)
+y <- c(0.4, 1)
+f <- approxfun(x, y)
+l <- 100000
+H <- seq(x[1],x[2], length.out = l)
+I <- f(H)
+S <- rep(1,length(H))
+R <- hsi2rgb(H, S, I)[1,]
+G <- hsi2rgb(H, S ,I)[2,]
+B <- hsi2rgb(H, S, I)[3,]
+col_hsi <- rgb(t(hsi2rgb(H, S, I)), maxColorValue = 255)
+barplot(rep(1,length(H)), col = col_hsi, border = NA, beside = FALSE, space = c(0,0),
+        axes = FALSE, main="Color mapping", cex.main = 0.9)
+```
+
+Since the response is the temperature, we may want red represents high values and blue represents low values, and we can modify the `hueRange` in the argument of `make_glyphs` to make it.
+
+```{r, fig.show='hold'}
+par(mar = rep(1.5,4))
+# get glyphs
+glyphs_temperature <- make_glyphs(data = data_temperature, width = c(1,12,1), height = c(1,1,6),
+                                  hueRange = c(240,360), glyph_type = "rectangle", type = "pixmap")
+x <- expand.grid(nasa$dims$long, nasa$dims$lat) # get the latitude and longitude as coordinates
+# plot glyphs
+plot_glyphs(x, glyphs = glyphs_temperature, type = "pixmap", xlab = "", ylab = "",
+            xaxs = "i", yaxs = "i", cex.axis = 0.8, mgp = c(3, 0.5, 0))
+title("Nasa data temperature trend plot\n(Red vs Blue)", line = 0.1, cex.main = 0.8)
+# color mapping plot
+x <- c(240, 360)
+y <- c(0.4, 1)
+f <- approxfun(x, y)
+l <- 100000
+H <- seq(x[1],x[2], length.out = l)
+I <- f(H)
+S <- rep(1,length(H))
+R <- hsi2rgb(H, S, I)[1,]
+G <- hsi2rgb(H, S ,I)[2,]
+B <- hsi2rgb(H, S, I)[3,]
+col_hsi <- rgb(t(hsi2rgb(H, S, I)), maxColorValue = 255)
+barplot(rep(1,length(H)), col = col_hsi, border = NA, beside = FALSE, space = c(0,0),
+        axes = FALSE, main="Color mapping", cex.main = 0.9)
+```
+
+Also, we can use other color scales, such as diverge color scale provided in `colorspace` package.
+
+```{r, fig.show='hold'}
+library(colorspace)
+par(mar = rep(1.5,4))
+cols <- diverge_hcl(21) # get colors
+glyphs_temperature <- make_glyphs(data = data_temperature, width = c(1,12,1), height = c(1,1,6),
+                                  cols = cols, glyph_type = "rectangle", type = "pixmap")
+x <- expand.grid(nasa$dims$long, nasa$dims$lat) # get the latitude and longitude as coordinates
+plot_glyphs(x, glyphs = glyphs_temperature, type = "pixmap", xlab = "", ylab = "",
+            xaxs = "i", yaxs = "i", cex.axis = 0.8, mgp = c(3, 0.5, 0))
+title("Nasa data temperature trend plot\n(Diverge scale)", line = 0.1, cex.main = 0.8)
+# color mapping
+pal <- function(col, border = "light gray")
+{
+  n <- length(col)
+  plot(0, 0, type="n", xlim = c(0, 1), ylim = c(0, 1), axes = FALSE, xlab = "", ylab = "")
+  rect(0:(n-1)/n, 0, 1:n/n, 1, col = col, border = border)
+}
+pal(cols)
+```
+
+Moreover, we can draw a map background first and then plot glyphs on it.
+
+```{r, fig.align='center', fig.height=7, fig.width=7}
+library(maps)
+par(mar = rep(1.5,4))
+long <- nasa$dims$long
+lat <- nasa$dims$lat
+interval_x <- (max(long)-min(long))/(length(unique(long))-1)
+interval_y <- (max(lat)-min(lat))/(length(unique(lat))-1)
+# draw map and make the map able to change the size
+map_glyph <- make_glyphs_draw(data = list(glyphs_temperature), draw_fun = function(glyph_i){
+  # draw map background
+  map("world", xlim = c(min(long)-interval_x/2, max(long)+interval_x/2),
+      ylim = c(min(lat)-interval_y/2, max(lat)+interval_y/2), border = FALSE,
+      col=adjustcolor("grey70", alpha.f = 0.7), fill=TRUE, bg = "grey90", myborder = 0.001)
+  map.axes(cex.axis = 0.8, mgp = c(3, 0.5, 0)) # add axes on the map
+  grid(nx = length(nasa$dims$long), col = "white", lty = 1) # add grid
+  # plot the glyphs
+  plot_glyphs(x, glyphs = glyph_i, type = "pixmap",
+              glyphWidth = 1.8, glyphHeight = 1.5, add = TRUE)
+}, mar = rep(0,4), width = 960, height = 960)
+plot(0,type='n', xlim=c(0, 1), ylim=c(0, 1), axes = FALSE, xlab = "", ylab = "")
+title("Nasa data temperature trend plot\n(Diverge scale)", line = 0.1, cex.main = 0.8)
+rasterImage(map_glyph[[1]], 0, 0, 1, 1)
+```
+
+Besides, we can also use `make_glyphs_draw` function to draw time series glyphs on the map background. Each glyph is the smooth.spline fitting of the corresponding time series data with `df=12`.
+
+**Local scaling:**
+
+```{r, fig.align='center', fig.height=7, fig.width=7}
+par(mar = rep(1.5,4))
+xnew <- seq(1, 72, length.out = 100)
+x <- expand.grid(nasa$dims$long, nasa$dims$lat) # get the latitude and longitude as coordinates
+# get time series glyphs
+timeseries_glyph <- make_glyphs_draw(data = data_temperature, draw_fun = function(data_i){
+  sm_i <- smooth.spline(data_i, df = 12) # smooth.spline fitting with df = 12
+  ypred_i <- predict(sm_i, x = xnew)$y 
+  plot(xnew, ypred_i, type = "l", lwd = 4, axes = FALSE, xlab = "", ylab = "",
+       xaxs = "i", yaxs = "i")
+}, type = "png", width = 100, height = 100, bg = NA)
+# draw map and make the map able to change the size
+map_glyph_timeseries <- make_glyphs_draw(data = list(timeseries_glyph), draw_fun = function(glyph_i){
+  # draw map background
+  map("world", xlim = c(min(long)-interval_x/2, max(long)+interval_x/2),
+      ylim = c(min(lat)-interval_y/2, max(lat)+interval_y/2), border = FALSE,
+      col=adjustcolor("grey70", alpha.f = 0.7), fill=TRUE, bg = "grey90", myborder = 0.001)
+  map.axes(cex.axis = 1.5, mgp = c(3, 0.5, 0)) # add map axis
+  grid(nx = length(nasa$dims$long), col = "white", lty = 1, lwd = 2) # add grids
+  plot_glyphs(x, glyphs = timeseries_glyph, add = TRUE) # plot glyphs
+}, mar = rep(0,4), width = 1500, height = 1500)
+plot(0,type='n', xlim=c(0, 1), ylim=c(0, 1), axes = FALSE, xlab = "", ylab = "")
+title("Time series glyphs plot\n(local scaling)", line = 0.1, cex.main = 0.8)
+rasterImage(map_glyph_timeseries[[1]], 0, 0, 1, 1)
+```
+
+**Common scaling:**
+
+```{r, fig.align='center', fig.height=7, fig.width=7}
+par(mar = rep(1.5,4))
+ylim <- c(min(unlist(data_temperature)), max(unlist(data_temperature)))
+timeseries_glyph_commonscale <- make_glyphs_draw(data = data_temperature, 
+draw_fun = function(data_i){
+  sm_i <- smooth.spline(data_i, df = 12) # smooth.spline fitting with df = 12
+  ypred_i <- predict(sm_i, x = xnew)$y 
+  plot(xnew, ypred_i, type = "l", lwd = 4, axes = FALSE, xlab = "", ylab = "",
+       xaxs = "i", yaxs = "i", ylim = ylim)
+}, type = "png", width = 100, height = 100, bg = NA)
+# draw map and make the map able to change the size
+map_glyph_timeseries <- make_glyphs_draw(data = list(timeseries_glyph_commonscale), 
+draw_fun = function(glyph_i){
+  # draw map background
+  map("world", xlim = c(min(long)-interval_x/2, max(long)+interval_x/2),
+      ylim = c(min(lat)-interval_y/2, max(lat)+interval_y/2), border = FALSE,
+      col=adjustcolor("grey70", alpha.f = 0.7), fill=TRUE, 
+      bg = "grey90", myborder = 0.001)
+  map.axes(cex.axis = 1.5, mgp = c(3, 0.5, 0)) # add map axis
+  grid(nx = length(nasa$dims$long), col = "white", lty = 1, lwd = 2) # add grids
+  plot_glyphs(x, glyphs = glyph_i, add = TRUE) # plot glyphs
+}, mar = rep(0,4), width = 1500, height = 1500)
+plot(0,type='n', xlim=c(0, 1), ylim=c(0, 1), axes = FALSE, xlab = "", ylab = "")
+title("Time series glyphs plot\n(common scaling)", line = 0.1, cex.main = 0.8)
+rasterImage(map_glyph_timeseries[[1]], 0, 0, 1, 1)
+```
+
+
+## Analysis
+
+From the plot of diverge scale, we can see in the bottom left corner and top right corner, the temperature pattern is very regular and does not change much in these 6 years. However, for the bottom right corner, top left corner and the center, the temperature varies much not only between different locations but within each glyph, which suggests that there exists irregular climate changes during these 6 years. 
+
+After adding the map of corresponding area to the plot, it can be seen that most of the regular temperature pattern we detect above is in the sea far from the land. The temperature in the land varies much more than in the sea. The most irregular pattern appears at the boundary between land and sea.
+
+Also, notice that in the land there exists patterns for different location, but in each glyph the temperature also varies a lot among different years and months particularly in bottom right corner. It also suggests an irregular climate change.
+
